@@ -1,0 +1,157 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Fastq &#8212; baseq 0.01 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="BAM" href="BAM.html" />
+    <link rel="prev" title="生成 PPT" href="../support/PPT.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="fastq">
+<span id="bam"></span><h1>Fastq<a class="headerlink" href="#fastq" title="Permalink to this headline">¶</a></h1>
+<p>Fastq format is fundemental for bioinformatics.</p>
+<p>The functions：</p>
+<ul class="simple">
+<li>List samples in a folder;</li>
+<li>Fastq file quality stats;</li>
+<li>Subsampling;</li>
+<li>Split barcode;</li>
+</ul>
+<div class="section" id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="api">
+<h2>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-baseq.fastq.sample_file">
+<span id="samples"></span><h3>Samples<a class="headerlink" href="#module-baseq.fastq.sample_file" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.fastq.sample_file.check_sample_files">
+<code class="descclassname">baseq.fastq.sample_file.</code><code class="descname">check_sample_files</code><span class="sig-paren">(</span><em>samplefile=''</em>, <em>name=''</em>, <em>fq1=''</em>, <em>fq2=''</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/fastq/sample_file.html#check_sample_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.fastq.sample_file.check_sample_files" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check sample and fastq paths from samplefile and fqs</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.fastq.sample_file.list_fastq_files">
+<code class="descclassname">baseq.fastq.sample_file.</code><code class="descname">list_fastq_files</code><span class="sig-paren">(</span><em>sampleDir</em>, <em>writeFile</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/fastq/sample_file.html#list_fastq_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.fastq.sample_file.list_fastq_files" title="Permalink to this definition">¶</a></dt>
+<dd><p>List the files in the directory; Extract the sample files and write to a folder;</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-baseq.fastq.quality">
+<span id="quality"></span><h3>Quality<a class="headerlink" href="#module-baseq.fastq.quality" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.fastq.quality.quality">
+<code class="descclassname">baseq.fastq.quality.</code><code class="descname">quality</code><span class="sig-paren">(</span><em>sample</em>, <em>fastq_path</em>, <em>maxLines=10000</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/fastq/quality.html#quality"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.fastq.quality.quality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate the basic quality stats of the fastq file
+Return:</p>
+<blockquote>
+<div>dataframe: A/T/C/G/quality;
+base content figure in base64;
+base quality figure in base64;</div></blockquote>
+</dd></dl>
+
+</div>
+<div class="section" id="module-baseq.fastq.split_barcode">
+<span id="split-barcode"></span><h3>Split Barcode<a class="headerlink" href="#module-baseq.fastq.split_barcode" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.fastq.split_barcode.split_barcode">
+<code class="descclassname">baseq.fastq.split_barcode.</code><code class="descname">split_barcode</code><span class="sig-paren">(</span><em>barcode_file</em>, <em>fastq</em>, <em>outdir</em>, <em>suffix</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/fastq/split_barcode.html#split_barcode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.fastq.split_barcode.split_barcode" title="Permalink to this definition">¶</a></dt>
+<dd><p>barcode_file: tsv: samplename barcode_string…</p>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Fastq</a><ul>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+<li><a class="reference internal" href="#api">API</a><ul>
+<li><a class="reference internal" href="#module-baseq.fastq.sample_file">Samples</a></li>
+<li><a class="reference internal" href="#module-baseq.fastq.quality">Quality</a></li>
+<li><a class="reference internal" href="#module-baseq.fastq.split_barcode">Split Barcode</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../support/PPT.html" title="previous chapter">生成 PPT</a></li>
+      <li>Next: <a href="BAM.html" title="next chapter">BAM</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/baseq/fastq.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Xiannian Zhang.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/baseq/fastq.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

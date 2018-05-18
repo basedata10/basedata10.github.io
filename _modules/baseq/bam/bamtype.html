@@ -1,0 +1,313 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>baseq.bam.bamtype &#8212; baseq 0.01 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for baseq.bam.bamtype</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">re</span><span class="o">,</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">jinja2</span> <span class="k">import</span> <span class="n">Template</span>
+<span class="kn">from</span> <span class="nn">baseq.utils.runcommand</span> <span class="k">import</span> <span class="n">run_it</span><span class="p">,</span> <span class="n">run_generator</span>
+<span class="kn">from</span> <span class="nn">baseq.bed</span> <span class="k">import</span> <span class="n">BEDFILE</span>
+<span class="kn">from</span> <span class="nn">multiprocessing.pool</span> <span class="k">import</span> <span class="n">ThreadPool</span>
+<span class="kn">from</span> <span class="nn">baseq.bam.cigar</span> <span class="k">import</span> <span class="n">overlap</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">reads_total/reads_mapped/reads_mapratio/</span>
+<span class="sd">duplicate_reads/</span>
+<span class="sd">match_length/match_bases/</span>
+<span class="sd">region_length/region_mean_depth/region_total_bases/</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="BAMTYPE"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE">[docs]</a><span class="k">class</span> <span class="nc">BAMTYPE</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    BAM File Handler, Based on samtools.</span>
+<span class="sd">    While initiate, it read the path using samtools and will parse the headers.</span>
+
+<span class="sd">    Usage:</span>
+<span class="sd">        * Stats on enrichment quality.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">bedfile</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="s2">&quot;[error] Bam File </span><span class="si">{}</span><span class="s2"> Not Exists&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">run_it</span><span class="p">(</span><span class="s2">&quot;samtools view -H </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="c1">#get the bam header</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">|:&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">]</span>
+        <span class="n">chrs</span> <span class="o">=</span> <span class="p">[(</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">]))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">header</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">2</span> <span class="ow">and</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">==</span><span class="s2">&quot;SN&quot;</span><span class="p">]</span>
+        <span class="c1">#chromesome names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chrs</span> <span class="o">=</span> <span class="p">{</span><span class="nb">chr</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="nb">chr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="nb">chr</span> <span class="ow">in</span> <span class="n">chrs</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="n">path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reads</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1">#bam index file</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="o">+</span><span class="s2">&quot;.bai&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+        <span class="c1">#set bedfile</span>
+        <span class="k">if</span> <span class="n">bedfile</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bedfile</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bedfile</span> <span class="o">=</span> <span class="n">BEDFILE</span><span class="p">(</span><span class="n">bedfile</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bedfile</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="BAMTYPE.get_columns"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.get_columns">[docs]</a>    <span class="k">def</span> <span class="nf">get_columns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rows</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">colIdx</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read the bamfile using samtools, get the infors in the column&lt;colIDx&gt; and first &lt;rows&gt; of Rows.</span>
+<span class="sd">        The columns of bam files are:</span>
+
+<span class="sd">        #. header</span>
+<span class="sd">        #. flags</span>
+<span class="sd">        #. chromosome</span>
+<span class="sd">        #. start</span>
+<span class="sd">        #. mapping quality</span>
+<span class="sd">        #. cigar</span>
+
+<span class="sd">        The colIdx start from 1.</span>
+<span class="sd">        ::</span>
+<span class="sd">          BAMTYPE(path).get_columns(1000, 3)</span>
+<span class="sd">          # [&#39;chr1&#39;, &#39;chr1&#39;, ...]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">Template</span><span class="p">(</span><span class="s2">&quot;samtools view {{path}} | awk &#39;{print ${{colIdx}}}&#39; | head -n {{rows}}&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">colIdx</span><span class="o">=</span><span class="n">colIdx</span><span class="p">,</span> <span class="n">rows</span><span class="o">=</span><span class="n">rows</span><span class="p">)</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">run_it</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">lines</span></div>
+
+<div class="viewcode-block" id="BAMTYPE.region_depth"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.region_depth">[docs]</a>    <span class="k">def</span> <span class="nf">region_depth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">chr</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="nb">all</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the depth coverage of bases in the region.</span>
+<span class="sd">        It will suitable for chromesome name like &quot;chr1&quot; and &quot;1&quot;.</span>
+
+<span class="sd">        :param all: Shall the bases with zero coverge be returned.</span>
+
+<span class="sd">        Usage:</span>
+<span class="sd">        ::</span>
+<span class="sd">            BAMTYPE(path).region_depth(&quot;chr1&quot;, 1000, 2000, all=True)</span>
+<span class="sd">            `return depth list [0,1,1,1,2,2,2,3,0]`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">chr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">chr</span><span class="p">)</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">chr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrs</span><span class="p">:</span>
+            <span class="n">chr_real</span> <span class="o">=</span> <span class="nb">chr</span>
+        <span class="k">elif</span> <span class="nb">chr</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;chr&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">chr</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrs</span><span class="p">:</span>
+            <span class="n">chr_real</span> <span class="o">=</span> <span class="nb">chr</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[error] </span><span class="si">{}</span><span class="s2"> not exist in genome&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">chr</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">run_generator</span><span class="p">(</span><span class="s2">&quot;samtools depth -a -r </span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">-</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">chr_real</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">run_generator</span><span class="p">(</span><span class="s2">&quot;samtools depth -r </span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">-</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">chr_real</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">depth</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">depth</span></div>
+
+<div class="viewcode-block" id="BAMTYPE.region_bed_depth"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.region_bed_depth">[docs]</a>    <span class="k">def</span> <span class="nf">region_bed_depth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bedfile</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The depth of regions in an bed file.</span>
+
+<span class="sd">        .. todo::</span>
+
+<span class="sd">           This function is not suitable for sending spam e-mails.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">run_generator</span><span class="p">(</span><span class="s2">&quot;samtools depth -b </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bedfile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">))</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">depth</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">depth</span></div>
+
+<div class="viewcode-block" id="BAMTYPE.stats_bam"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.stats_bam">[docs]</a>    <span class="k">def</span> <span class="nf">stats_bam</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read the bampath.stat, if not exists, perform the `samtools flagstat`</span>
+<span class="sd">        The results will be:</span>
+
+<span class="sd">        #. self.reads_total</span>
+<span class="sd">        #. self.reads_mapped</span>
+<span class="sd">        #. self.mapping_ratio</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stat_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;.stat&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">stat_file</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[info] </span><span class="si">{}</span><span class="s2"> Exists&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stat_file</span><span class="p">))</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stat_file</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">lines</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">run_it</span><span class="p">(</span><span class="s2">&quot;samtools flagstat </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">))</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stat_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                    <span class="n">file</span><span class="o">.</span><span class="n">writelines</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">))</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[info] Failed to write to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stat_file</span><span class="p">))</span>
+
+        <span class="n">infos</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">]</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">infos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">mapped</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">infos</span><span class="p">[</span><span class="mi">4</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reads_total</span> <span class="o">=</span> <span class="n">total</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reads_mapped</span> <span class="o">=</span> <span class="n">mapped</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapping_ratio</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">mapped</span><span class="p">)</span><span class="o">/</span><span class="n">total</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[info] Reads Stats, Total </span><span class="si">{}</span><span class="s2">, Mapped </span><span class="si">{}</span><span class="s2">, Ratio </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">mapped</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping_ratio</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="BAMTYPE.stats_bases"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.stats_bases">[docs]</a>    <span class="k">def</span> <span class="nf">stats_bases</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stats on the mean match length for the top 100K reads in the bam file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">baseq.bam.cigar</span> <span class="k">import</span> <span class="n">match_length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_bam</span><span class="p">()</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_columns</span><span class="p">(</span><span class="mi">100000</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="p">[</span><span class="n">match_length</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span> <span class="k">if</span> <span class="s1">&#39;M&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">match_length</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">length</span><span class="p">),</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">match_bases</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">match_length</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">reads_mapped</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[info] Mean matched read length: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">match_length</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="BAMTYPE.stats_duplicates"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.stats_duplicates">[docs]</a>    <span class="k">def</span> <span class="nf">stats_duplicates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stats Duplication Rates from the top 1M reads;</span>
+<span class="sd">        The duplication should be reflected in the flag</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_columns</span><span class="p">(</span><span class="mi">1000000</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">dups</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">flags</span> <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1024</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dup_ratio</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">dups</span><span class="p">)</span><span class="o">/</span><span class="mi">1000000</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[infos] Total </span><span class="si">{}</span><span class="s2">, Dups </span><span class="si">{}</span><span class="s2">, Ratio </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">1000000</span><span class="p">,</span> <span class="n">dups</span><span class="p">,</span> <span class="n">dups</span><span class="o">/</span><span class="mi">1000000</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">stats_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bedfile</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bedfile</span><span class="o">.</span><span class="n">stats</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[info] No Bed File Exists&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BAMTYPE.stats_region_coverage"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.stats_region_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">stats_region_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numbers</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check the enrichment quality.</span>
+
+<span class="sd">        * Require a bedfile while initiating the class</span>
+<span class="sd">        * Select &lt;numbers&gt; regions randomly</span>
+<span class="sd">        * Use multithread pool to get the coverage depth of the regions</span>
+<span class="sd">        * Stats on the ratio of 10X, 30X, 50X and 100X bases</span>
+
+<span class="sd">        Usage:</span>
+<span class="sd">        ::</span>
+<span class="sd">            BAMTYPE(&quot;sample.bam&quot;, &quot;panel.bed&quot;).stats_region_coverage(1000)</span>
+<span class="sd">            The results will be save in object properies:</span>
+<span class="sd">            self.mean_depth/self.pct_10X/..</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">intervals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bedfile</span><span class="o">.</span><span class="n">sampling</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">numbers</span><span class="p">))</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="n">ThreadPool</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">total_bases</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">interval</span> <span class="ow">in</span> <span class="n">intervals</span><span class="p">:</span>
+            <span class="n">total_bases</span> <span class="o">+=</span> <span class="n">interval</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">interval</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">region_depth</span><span class="p">,</span> <span class="p">(</span><span class="n">interval</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">interval</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">interval</span><span class="p">[</span><span class="mi">2</span><span class="p">])))</span>
+
+        <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+        <span class="n">region_depth</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+        <span class="n">depth_flat</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">sublist</span> <span class="ow">in</span> <span class="n">region_depth</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">sublist</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean_depth</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">depth_flat</span><span class="p">)</span><span class="o">/</span><span class="n">total_bases</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pct_10X</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">depth_flat</span> <span class="k">if</span> <span class="n">x</span><span class="o">&gt;=</span><span class="mi">10</span><span class="p">])</span><span class="o">/</span><span class="n">total_bases</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pct_30X</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">depth_flat</span> <span class="k">if</span> <span class="n">x</span><span class="o">&gt;=</span><span class="mi">30</span><span class="p">])</span><span class="o">/</span><span class="n">total_bases</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pct_50X</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">depth_flat</span> <span class="k">if</span> <span class="n">x</span><span class="o">&gt;=</span><span class="mi">50</span><span class="p">])</span><span class="o">/</span><span class="n">total_bases</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pct_100X</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">depth_flat</span> <span class="k">if</span> <span class="n">x</span><span class="o">&gt;=</span><span class="mi">100</span><span class="p">])</span><span class="o">/</span><span class="n">total_bases</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[info] StatBases </span><span class="si">{}</span><span class="s2">, Mean </span><span class="si">{}</span><span class="s2">, 10X </span><span class="si">{}</span><span class="s2">, 30X </span><span class="si">{}</span><span class="s2">, 50X </span><span class="si">{}</span><span class="s2">, 100X </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">total_bases</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean_depth</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pct_10X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pct_30X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pct_50X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pct_100X</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="BAMTYPE.get_reads"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.get_reads">[docs]</a>    <span class="k">def</span> <span class="nf">get_reads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">chr</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return The Reads that overlaps with region chrN:start-end.</span>
+
+<span class="sd">        * Skip reads contains &quot;N&quot; cigar.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">chr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">chr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">chr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrs</span><span class="p">:</span>
+            <span class="n">chr_real</span> <span class="o">=</span> <span class="nb">chr</span>
+        <span class="k">elif</span> <span class="nb">chr</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;chr&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">chr</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrs</span><span class="p">:</span>
+            <span class="n">chr_real</span> <span class="o">=</span> <span class="nb">chr</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">run_generator</span><span class="p">(</span><span class="s2">&quot;samtools view </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">-</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">chr_real</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+        <span class="n">reads</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">flags</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+            <span class="c1">#overlap_length = overlap(flags, lines[3], start, end)</span>
+            <span class="c1">#if overlap_length&lt;=30:</span>
+            <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="n">flags</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">flags</span><span class="p">)</span>
+                <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">reads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">6</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">reads</span></div>
+
+<div class="viewcode-block" id="BAMTYPE.read_counts"><a class="viewcode-back" href="../../../baseq/BAM.html#baseq.bam.BAMTYPE.read_counts">[docs]</a>    <span class="k">def</span> <span class="nf">read_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">chr</span><span class="p">,</span> <span class="n">star</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Todo:</span>
+<span class="sd">            * For module TODOs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Xiannian Zhang.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

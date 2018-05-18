@@ -1,0 +1,345 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>DropsRNA &#8212; baseq 0.01 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Different Exp:" href="../RNA/diffgene.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="dropsrna">
+<h1>DropsRNA<a class="headerlink" href="#dropsrna" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="design">
+<h2>Design<a class="headerlink" href="#design" title="Permalink to this headline">¶</a></h2>
+<p>The key question for Drops Pipeline design.</p>
+<ul class="simple">
+<li>Split the barcode;</li>
+<li>Tagging reads from genome position;</li>
+</ul>
+</div>
+<div class="section" id="todos">
+<h2>Todos<a class="headerlink" href="#todos" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>尚待完成</li>
+</ul>
+</div>
+<div class="section" id="apis">
+<h2>APIs<a class="headerlink" href="#apis" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-baseq.drops.barcode.count">
+<span id="extract-count-barcode"></span><h3>Extract, Count barcode<a class="headerlink" href="#module-baseq.drops.barcode.count" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.drops.barcode.count.count_barcodes">
+<code class="descclassname">baseq.drops.barcode.count.</code><code class="descname">count_barcodes</code><span class="sig-paren">(</span><em>path</em>, <em>output</em>, <em>protocol</em>, <em>min_reads</em>, <em>topreads=100</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/barcode/count.html#count_barcodes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.barcode.count.count_barcodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count thre number of Each barcode</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>path</strong> – fastq file.</li>
+<li><strong>output</strong> – The stats will write to …</li>
+<li><strong>protocol</strong> – Protocol</li>
+<li><strong>min_reads</strong> – minimum reads</li>
+<li><strong>topreads</strong> – process max N million reads</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>Return:</dt>
+<dd>A barcode_count file will be generated.
+cellbarcode/counts</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.drops.barcode.count.extract_barcode">
+<code class="descclassname">baseq.drops.barcode.count.</code><code class="descname">extract_barcode</code><span class="sig-paren">(</span><em>protocol</em>, <em>seq</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/barcode/count.html#extract_barcode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.barcode.count.extract_barcode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract cell barcode from reads</p>
+<ul class="simple">
+<li>10X: seq[0:16]</li>
+<li>indrop: seq[0:i] + seq[i + 22 : i + 22 + 8] (i is length of barcode 1)</li>
+<li>dropseq: seq[0:12]</li>
+</ul>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>protocol</strong> – 10X/indrop/drop-seq.</li>
+<li><strong>seq</strong> – The sequence containing cellbarcode.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>Return:</dt>
+<dd>barcode: barcode, if no valid barcode, return “”</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-baseq.drops.barcode.stats">
+<span id="correct-stats-barcode"></span><h3>Correct, stats barcode<a class="headerlink" href="#module-baseq.drops.barcode.stats" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.drops.barcode.stats.valid_barcode">
+<code class="descclassname">baseq.drops.barcode.stats.</code><code class="descname">valid_barcode</code><span class="sig-paren">(</span><em>protocol=''</em>, <em>barcode_count=''</em>, <em>max_cell=10000</em>, <em>min_reads=2000</em>, <em>output='./bc_stats.txt'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/barcode/stats.html#valid_barcode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.barcode.stats.valid_barcode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Aggregate the mismatch barcode, get the total_reads;</p>
+<ol class="arabic simple">
+<li>Read the barcode counts files;</li>
+<li>Correct the barcode with 1bp mismatch;</li>
+<li>Stats the mismatch barcode reads and sequences;</li>
+<li>Determine wheather mutate on the last base (show A/T/C/G with similar ratio at the last base);</li>
+<li>Filter by whitelist;</li>
+<li>Filter by read counts (&gt;=min_reads);</li>
+<li>Print the number of barcode and reads retained after each steps.</li>
+</ol>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>protocol</strong> – 10X/Dropseq/inDrop.</li>
+<li><strong>barcode_count</strong> – barcode_count.</li>
+<li><strong>min_reads</strong> – Minimum number of reads for a cell.</li>
+<li><strong>output</strong> – Path or name of output (./bc_stats.txt)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>Return:</dt>
+<dd>Write a bc_stats.csv file which contains:
+barcode/counts/mismatch_reads/mismatch_bc/mutate_last_base</dd>
+</dl>
+</dd></dl>
+
+<div class="section" id="module-baseq.drops.barcode.split">
+<span id="barcode-split"></span><h4>Barcode Split<a class="headerlink" href="#module-baseq.drops.barcode.split" title="Permalink to this headline">¶</a></h4>
+<dl class="function">
+<dt id="baseq.drops.barcode.split.split_16">
+<code class="descclassname">baseq.drops.barcode.split.</code><code class="descname">split_16</code><span class="sig-paren">(</span><em>name</em>, <em>protocol</em>, <em>bcstats</em>, <em>fq1</em>, <em>fq2</em>, <em>dir</em>, <em>topreads=10</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/barcode/split.html#split_16"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.barcode.split.split_16" title="Permalink to this definition">¶</a></dt>
+<dd><p>Barcode split into 16 files according to the valid barcode in the bcstats files.</p>
+<ol class="arabic simple">
+<li>Determine whether the last base mutates;</li>
+<li>Filter by whitelist;</li>
+</ol>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>protocol</strong> – 10X/Dropseq/inDrop.</li>
+<li><strong>name</strong> – barcode_count.</li>
+<li><strong>bcstats</strong> – Valid Barcode.</li>
+<li><strong>output</strong> – (./bc_stats.txt)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>Return:</dt>
+<dd>The splitted reads will be write to XXXX/split.AA.fa</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="reads-tagging">
+<h4>Reads Tagging<a class="headerlink" href="#reads-tagging" title="Permalink to this headline">¶</a></h4>
+</div>
+<div class="section" id="alternative-poly-adenelation">
+<h4>Alternative Poly Adenelation<a class="headerlink" href="#alternative-poly-adenelation" title="Permalink to this headline">¶</a></h4>
+<dl class="function">
+<dt id="baseq.drops.apa.scaner.scan">
+<code class="descclassname">baseq.drops.apa.scaner.</code><code class="descname">scan</code><span class="sig-paren">(</span><em>bam</em>, <em>name</em>, <em>chr</em>, <em>start</em>, <em>end</em>, <em>min_depth=10</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/apa/scaner.html#scan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.apa.scaner.scan" title="Permalink to this definition">¶</a></dt>
+<dd><p>SCAN THE GENOME…</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.drops.apa.samples.APA_usage">
+<code class="descclassname">baseq.drops.apa.samples.</code><code class="descname">APA_usage</code><span class="sig-paren">(</span><em>bamfile</em>, <em>APA_sitefile</em>, <em>celltype</em>, <em>gene</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/apa/samples.html#APA_usage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.apa.samples.APA_usage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the abundance for each cell barcode for each APA in the gene.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>bamfile</strong> – method for the new <code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code> object.</li>
+<li><strong>APA_sitefile</strong> – URL for the new <code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code> object.</li>
+<li><strong>celltype</strong> – (optional) The celltype file genreated from cellranger</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>Usage:</dt>
+<dd><div class="first last highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">requests</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">req</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;http://httpbin.org/get&#39;</span><span class="p">)</span>
+<span class="go">&lt;Response [200]&gt;</span>
+</pre></div>
+</div>
+</dd>
+<dt>Returnsass:</dt>
+<dd>Generate a heatmap;
+Print the Read count;</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.drops.apa.genes.scan_genes">
+<code class="descclassname">baseq.drops.apa.genes.</code><code class="descname">scan_genes</code><span class="sig-paren">(</span><em>genome</em>, <em>bam</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/apa/genes.html#scan_genes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.apa.genes.scan_genes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Example function with types documented in the docstring.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>param1 (int): The first parameter.
+param2 (str): The second parameter.</dd>
+<dt>Examples:</dt>
+<dd>Examples should be written in doctest format, and should illustrate how
+to use the function.</dd>
+<dt>Returns:</dt>
+<dd>bool: The return value. True for success, False otherwise.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.drops.apa.UTR.scan_utr">
+<code class="descclassname">baseq.drops.apa.UTR.</code><code class="descname">scan_utr</code><span class="sig-paren">(</span><em>genome</em>, <em>bam</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/apa/UTR.html#scan_utr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.drops.apa.UTR.scan_utr" title="Permalink to this definition">¶</a></dt>
+<dd><p>For a genome, read the gencode annotationm get the logest UTR for each gene (&gt;=1000bp)    Apply the ‘scan’ function for each UTR (default 20 threads…)    Call the peaks for each UTR.    Build and Write the APA Peaks for all the genes.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descclassname">baseq.drops.apa.samples.</code><code class="descname">APA_usage</code><span class="sig-paren">(</span><em>bamfile</em>, <em>APA_sitefile</em>, <em>celltype</em>, <em>gene</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/baseq/drops/apa/samples.html#APA_usage"><span class="viewcode-link">[source]</span></a></dt>
+<dd><p>Get the abundance for each cell barcode for each APA in the gene.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>bamfile</strong> – method for the new <code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code> object.</li>
+<li><strong>APA_sitefile</strong> – URL for the new <code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code> object.</li>
+<li><strong>celltype</strong> – (optional) The celltype file genreated from cellranger</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>Usage:</dt>
+<dd><div class="first last highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">requests</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">req</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;http://httpbin.org/get&#39;</span><span class="p">)</span>
+<span class="go">&lt;Response [200]&gt;</span>
+</pre></div>
+</div>
+</dd>
+<dt>Returnsass:</dt>
+<dd>Generate a heatmap;
+Print the Read count;</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-baseq.drops"></span></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">DropsRNA</a><ul>
+<li><a class="reference internal" href="#design">Design</a></li>
+<li><a class="reference internal" href="#todos">Todos</a></li>
+<li><a class="reference internal" href="#apis">APIs</a><ul>
+<li><a class="reference internal" href="#module-baseq.drops.barcode.count">Extract, Count barcode</a></li>
+<li><a class="reference internal" href="#module-baseq.drops.barcode.stats">Correct, stats barcode</a><ul>
+<li><a class="reference internal" href="#module-baseq.drops.barcode.split">Barcode Split</a></li>
+<li><a class="reference internal" href="#reads-tagging">Reads Tagging</a></li>
+<li><a class="reference internal" href="#alternative-poly-adenelation">Alternative Poly Adenelation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../RNA/diffgene.html" title="previous chapter">Different Exp:</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/Drops/Drops.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Xiannian Zhang.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/Drops/Drops.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

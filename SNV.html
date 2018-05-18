@@ -1,0 +1,189 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>SNV Analysis &#8212; baseq 0.01 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="DropSeq" href="Drops.html" />
+    <link rel="prev" title="CNV Analysis" href="CNV.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="snv-analysis">
+<span id="snv"></span><h1>SNV Analysis<a class="headerlink" href="#snv-analysis" title="Permalink to this headline">¶</a></h1>
+<p>SNV analysis functions.</p>
+<div class="section" id="quality-control">
+<h2>Quality Control<a class="headerlink" href="#quality-control" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-baseq.snv.qc.enrich">
+<span id="enrichment"></span><h3>Enrichment<a class="headerlink" href="#module-baseq.snv.qc.enrich" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.snv.qc.enrich.enrich_qc">
+<code class="descclassname">baseq.snv.qc.enrich.</code><code class="descname">enrich_qc</code><span class="sig-paren">(</span><em>samplename</em>, <em>bampath</em>, <em>intervals</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/baseq/snv/qc/enrich.html#enrich_qc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.snv.qc.enrich.enrich_qc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check the coverage depth and enrichment quality.</p>
+<p>Usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">enrich_qc</span><span class="p">(</span><span class="s2">&quot;sample01&quot;</span><span class="p">,</span> <span class="s2">&quot;xx.bam&quot;</span><span class="p">,</span> <span class="s2">&quot;panel.bed&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="docutils">
+<dt>Return:</dt>
+<dd>Sample/Total/Mapped/Map_Ratio/Dup_ratio/PCT_10X/PCT_30X/…</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="vcf">
+<h2>VCF<a class="headerlink" href="#vcf" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-baseq.snv.vcf.GATK">
+<span id="vcf-stats-and-filter"></span><h3>VCF stats and Filter<a class="headerlink" href="#module-baseq.snv.vcf.GATK" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.snv.vcf.GATK.vcf_stats">
+<code class="descclassname">baseq.snv.vcf.GATK.</code><code class="descname">vcf_stats</code><span class="sig-paren">(</span><em>sample</em>, <em>vcfpath</em>, <em>min_depth=50</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/baseq/snv/vcf/GATK.html#vcf_stats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.snv.vcf.GATK.vcf_stats" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stats on the VCF from GATK</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vcf_stats</span><span class="p">(</span><span class="s2">&quot;sample1&quot;</span><span class="p">,</span> <span class="s2">&quot;path/to/vcf&quot;</span><span class="p">,</span> <span class="n">min_depth</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="docutils">
+<dt>Return:</dt>
+<dd>A dict/json containing:
+Samplename/counts/mean_depth/GT_01/GT_11/MAF
+MAF is minor allel frequency.</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="gatk">
+<h2>GATK<a class="headerlink" href="#gatk" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-baseq.snv.gatk">
+<span id="run-gatk"></span><h3>run GATK<a class="headerlink" href="#module-baseq.snv.gatk" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="baseq.snv.gatk.alignment">
+<code class="descclassname">baseq.snv.gatk.</code><code class="descname">alignment</code><span class="sig-paren">(</span><em>fq1</em>, <em>fq2</em>, <em>sample</em>, <em>genome</em>, <em>outfile</em>, <em>thread=8</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/baseq/snv/gatk.html#alignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.snv.gatk.alignment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Map fastq1/2 files into genome using BWA. Add tags to bamfile using the input sample name. The bamfile is named as outfile.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.snv.gatk.bqsr">
+<code class="descclassname">baseq.snv.gatk.</code><code class="descname">bqsr</code><span class="sig-paren">(</span><em>markedbam</em>, <em>bqsrbam</em>, <em>genome</em>, <em>disable_dup_filter=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/baseq/snv/gatk.html#bqsr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.snv.gatk.bqsr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run <a class="reference external" href="https://gatkforums.broadinstitute.org/gatk/discussion/44/base-quality-score-recalibration-bqsr">BQSR</a>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">bqsr</span><span class="p">()</span>
+<span class="n">This</span> <span class="n">will</span> <span class="n">generate</span> <span class="n">a</span> <span class="n">XXXX</span><span class="o">...</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.snv.gatk.run_markdup">
+<code class="descclassname">baseq.snv.gatk.</code><code class="descname">run_markdup</code><span class="sig-paren">(</span><em>bamfile</em>, <em>markedbam</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/baseq/snv/gatk.html#run_markdup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.snv.gatk.run_markdup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run MarkDuplicate of Picard. Generate the bai for the marked bamfile.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">run_markdup</span><span class="p">(</span><span class="s2">&quot;in.bam&quot;</span><span class="p">,</span> <span class="s2">&quot;in.marked.bam&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="baseq.snv.gatk.selectvar">
+<code class="descclassname">baseq.snv.gatk.</code><code class="descname">selectvar</code><span class="sig-paren">(</span><em>rawvcf</em>, <em>selectvcf</em>, <em>filtervcf</em>, <em>genome</em>, <em>run=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/baseq/snv/gatk.html#selectvar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#baseq.snv.gatk.selectvar" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select Variants, it process the XX from XX, genrate XX for XX…</p>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">SNV Analysis</a><ul>
+<li><a class="reference internal" href="#quality-control">Quality Control</a><ul>
+<li><a class="reference internal" href="#module-baseq.snv.qc.enrich">Enrichment</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#vcf">VCF</a><ul>
+<li><a class="reference internal" href="#module-baseq.snv.vcf.GATK">VCF stats and Filter</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#gatk">GATK</a><ul>
+<li><a class="reference internal" href="#module-baseq.snv.gatk">run GATK</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="CNV.html" title="previous chapter">CNV Analysis</a></li>
+      <li>Next: <a href="Drops.html" title="next chapter">DropSeq</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/SNV.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Xiannian Zhang.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/SNV.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

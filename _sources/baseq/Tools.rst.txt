@@ -1,0 +1,24 @@
+.. _BAM:
+
+Tools
+======
+baseQ provide tools for help development.
+
+Usage
+----------
+File Server
+~~~~~~~~~~~~~
+Run a file server for download.
+::
+    baseq serve -p 7878
+    # you will see a line like:
+    # Visit: 192.168.2.11:7878
+    # Enter the ip to your browser...
+
+.. image::
+
+Sene Email
+~~~~~~~~~~~~~~~~~~~~
+You should enter subject, message. You could attch multiple files.
+::
+    baseq email -s "Subject" -m "Message is hello world." -a attach.txt

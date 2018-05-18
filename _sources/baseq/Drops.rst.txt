@@ -1,0 +1,53 @@
+DropsRNA
+===========
+
+Design
+-------
+The key question for Drops Pipeline design.
+
+- Split the barcode;
+- Tagging reads from genome position;
+
+
+Functions
+-----------
+
+Count barcode
+""""""""""""""""""""""
+.. automodule:: baseq.drops.barcode.count
+   :members:
+
+Correct & stats barcode
+"""""""""""""""""""""""
+.. automodule:: baseq.drops.whitelist
+   :members:
+
+.. automodule:: baseq.drops.barcode.stats
+   :members:
+
+Barcode Split
+"""""""""""""""""""""""
+.. automodule:: baseq.drops.barcode.split
+   :members:
+
+Reads Alignment
+"""""""""""""""""""""""
+.. automodule:: baseq.drops.run_star
+   :members:
+
+Reads Tagging
+"""""""""""""""""""""""
+.. automodule:: baseq.drops.tag_gene
+   :members:
+
+Alternative Poly Adenelation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autofunction:: baseq.drops.apa.scaner.scan
+.. autofunction:: baseq.drops.apa.samples.APA_usage
+.. autofunction:: baseq.drops.apa.genes.scan_genes
+.. autofunction:: baseq.drops.apa.UTR.scan_utr
+.. autofunction:: baseq.drops.apa.samples.APA_usage
+
+.. automodule:: baseq.drops
+   :members:
+   :undoc-members:

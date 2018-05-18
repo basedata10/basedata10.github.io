@@ -1,0 +1,443 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>baseq.snv.gatk &#8212; baseq 0.01 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for baseq.snv.gatk</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">baseq.mgt</span> <span class="k">import</span> <span class="n">get_config</span><span class="p">,</span> <span class="n">run_cmd</span>
+
+<span class="c1"># PICARD = get_config(&quot;SNV&quot;, &quot;picard&quot;)</span>
+<span class="c1"># GATK = get_config(&quot;SNV&quot;, &quot;GATK&quot;)</span>
+
+<span class="n">bwa_cmd_script_p</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span><span class="si">{bwa}</span><span class="s2"> mem -t </span><span class="si">{thread}</span><span class="s2"> -M -R &quot;@RG\tID:</span><span class="si">{sample}</span><span class="s2">\tSM:</span><span class="si">{sample}</span><span class="s2">\tLB:WES\tPL:Illumina&quot; </span><span class="si">{genome}</span><span class="s2"> </span><span class="si">{fq1}</span><span class="s2"> </span><span class="si">{fq2}</span><span class="s2">  1&gt;</span><span class="si">{samfile}</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="n">bwa_cmd_script_s</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span><span class="si">{bwa}</span><span class="s2"> mem -t </span><span class="si">{thread}</span><span class="s2"> -M -R &quot;@RG\tID:</span><span class="si">{sample}</span><span class="s2">\tSM:</span><span class="si">{sample}</span><span class="s2">\tLB:WES\tPL:Illumina&quot; </span><span class="si">{genome}</span><span class="s2"> </span><span class="si">{fq1}</span><span class="s2"> 1&gt;</span><span class="si">{samfile}</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="n">sort_index_cmd_script</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{samtools}</span><span class="s2"> view -b -u -S </span><span class="si">{samfile}</span><span class="s2">&gt;</span><span class="si">{viewedbam}</span><span class="s2"></span>
+<span class="si">{samtools}</span><span class="s2"> sort -@ 8 </span><span class="si">{viewedbam}</span><span class="s2"> </span><span class="si">{sample}</span><span class="s2"></span>
+<span class="si">{samtools}</span><span class="s2"> index </span><span class="si">{sample}</span><span class="s2">.bam</span>
+<span class="s2">rm </span><span class="si">{samfile}</span><span class="s2"> </span><span class="si">{viewedbam}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="alignment"><a class="viewcode-back" href="../../../baseq/SNV.html#baseq.snv.gatk.alignment">[docs]</a><span class="k">def</span> <span class="nf">alignment</span><span class="p">(</span><span class="n">fq1</span><span class="p">,</span> <span class="n">fq2</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="n">genome</span><span class="p">,</span> <span class="n">thread</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Map low-divergent sequences against reference genome using BWA.</span>
+<span class="sd">    Add ReadGroup(more details about ReadGroup_ )to bamfile using the input sample name.</span>
+<span class="sd">    Outfile is in BAM format and indexed for the downstream analysis.</span>
+
+<span class="sd">    .. _ReadGroup: https://software.broadinstitute.org/gatk/documentation/article.php?id=6472</span>
+
+<span class="sd">    Usage:</span>
+<span class="sd">    ::</span>
+<span class="sd">      baseq-SNV run_bwa -1 Reads.1.fq.gz -2 Read.2.fq.gz -g hg38 -n Test</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">    ::</span>
+<span class="sd">      Test.bam</span>
+<span class="sd">      Test.bam.bai</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bwa</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;bwa&quot;</span><span class="p">)</span>
+    <span class="n">samtools</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;samtools&quot;</span><span class="p">)</span>
+    <span class="n">genome</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span><span class="o">+</span><span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;bwa_index&quot;</span><span class="p">)</span>
+    <span class="n">viewedbam</span> <span class="o">=</span> <span class="n">sample</span> <span class="o">+</span> <span class="s2">&quot;.view.bam&quot;</span>
+    <span class="n">samfile</span> <span class="o">=</span> <span class="n">sample</span> <span class="o">+</span> <span class="s2">&quot;.sam&quot;</span>
+    <span class="k">if</span> <span class="n">fq1</span> <span class="ow">and</span> <span class="n">fq2</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fq1</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fq2</span><span class="p">):</span>
+        <span class="n">bwa_cmd</span> <span class="o">=</span> <span class="n">bwa_cmd_script_p</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bwa</span><span class="o">=</span><span class="n">bwa</span><span class="p">,</span> <span class="n">sample</span><span class="o">=</span><span class="n">sample</span><span class="p">,</span> <span class="n">genome</span><span class="o">=</span><span class="n">genome</span><span class="p">,</span> <span class="n">fq1</span><span class="o">=</span><span class="n">fq1</span><span class="p">,</span> <span class="n">fq2</span><span class="o">=</span><span class="n">fq2</span><span class="p">,</span> <span class="n">samfile</span><span class="o">=</span><span class="n">samfile</span><span class="p">,</span> <span class="n">thread</span><span class="o">=</span><span class="n">thread</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">fq1</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fq1</span><span class="p">):</span>
+        <span class="n">bwa_cmd</span> <span class="o">=</span> <span class="n">bwa_cmd_script_s</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bwa</span><span class="o">=</span><span class="n">bwa</span><span class="p">,</span> <span class="n">sample</span><span class="o">=</span><span class="n">sample</span><span class="p">,</span> <span class="n">genome</span><span class="o">=</span><span class="n">genome</span><span class="p">,</span> <span class="n">fq1</span><span class="o">=</span><span class="n">fq1</span><span class="p">,</span> <span class="n">samfile</span><span class="o">=</span><span class="n">samfile</span><span class="p">,</span> <span class="n">thread</span><span class="o">=</span><span class="n">thread</span><span class="p">)</span>
+    <span class="n">sort_index_cmd</span><span class="o">=</span><span class="n">sort_index_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">samtools</span><span class="o">=</span><span class="n">samtools</span><span class="p">,</span> <span class="n">sample</span><span class="o">=</span><span class="n">sample</span><span class="p">,</span> <span class="n">samfile</span><span class="o">=</span><span class="n">samfile</span><span class="p">,</span><span class="n">viewedbam</span><span class="o">=</span><span class="n">viewedbam</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;bwa alignment&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bwa_cmd</span><span class="p">))</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;samtools sort&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sort_index_cmd</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">bwa_cmd</span><span class="o">+</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">+</span><span class="n">sort_index_cmd</span></div>
+
+<span class="n">markdup_cmd_script</span> <span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{java}</span><span class="s2"> -jar </span><span class="si">{picard}</span><span class="s2"> MarkDuplicates INPUT=</span><span class="si">{bamfile}</span><span class="s2"> OUTPUT=</span><span class="si">{markedbam}</span><span class="s2"> METRICS_FILE=</span><span class="si">{markedbam}</span><span class="s2">.metrics</span>
+<span class="si">{samtools}</span><span class="s2"> index </span><span class="si">{markedbam}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="run_markdup"><a class="viewcode-back" href="../../../baseq/SNV.html#baseq.snv.gatk.run_markdup">[docs]</a><span class="k">def</span> <span class="nf">run_markdup</span><span class="p">(</span><span class="n">bamfile</span><span class="p">,</span> <span class="n">markedbam</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run MarkDuplicates of Picard. this function tags duplicate reads with &quot;markduplicate&quot; in BAM file.</span>
+<span class="sd">    See also MarkDuplicates_ in GATK.</span>
+
+
+<span class="sd">    .. _MarkDuplicates: https://software.broadinstitute.org/gatk/documentation/tooldocs/current/picard_sam_markduplicates_MarkDuplicates.php</span>
+
+<span class="sd">    Usage:</span>
+<span class="sd">    ::</span>
+<span class="sd">      baseq-SNV run_markdup -b Test.bam -m Test.marked.bam</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">    metrics file indicates the numbers of duplicates for both single- and paired-end reads</span>
+<span class="sd">    ::</span>
+<span class="sd">      Test.marked.bam</span>
+<span class="sd">      Test.marked.bam.bai</span>
+<span class="sd">      Test.marked.bam.metrics</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">java</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;java&quot;</span><span class="p">)</span>
+    <span class="n">picard</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;picard&quot;</span><span class="p">)</span>
+    <span class="n">samtools</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;RNA&quot;</span><span class="p">,</span> <span class="s2">&quot;samtools&quot;</span><span class="p">)</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="n">markdup_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">java</span><span class="o">=</span><span class="n">java</span><span class="p">,</span> <span class="n">picard</span><span class="o">=</span><span class="n">picard</span><span class="p">,</span> <span class="n">samtools</span><span class="o">=</span><span class="n">samtools</span><span class="p">,</span> <span class="n">markedbam</span><span class="o">=</span><span class="n">markedbam</span><span class="p">,</span> <span class="n">bamfile</span><span class="o">=</span><span class="n">bamfile</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;Mark duplicates&quot;</span><span class="p">,</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">cmd</span></div>
+
+<span class="n">bqsr_cmd_script</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> BaseRecalibrator -R </span><span class="si">{index}</span><span class="s2"> -L </span><span class="si">{interval}</span><span class="s2"> -I </span><span class="si">{markedbam}</span><span class="s2"> --known-sites </span><span class="si">{dbsnp}</span><span class="s2"> --known-sites </span><span class="si">{snp}</span><span class="s2"> --known-sites </span><span class="si">{indel}</span><span class="s2"> -O </span><span class="si">{markedbam}</span><span class="s2">.table</span>
+<span class="si">{gatk}</span><span class="s2"> ApplyBQSR -R </span><span class="si">{index}</span><span class="s2"> -L </span><span class="si">{interval}</span><span class="s2"> -I </span><span class="si">{markedbam}</span><span class="s2"> -bqsr </span><span class="si">{markedbam}</span><span class="s2">.table -O </span><span class="si">{bqsrbam}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="n">bqsr_cmd_script_DRF</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> BaseRecalibrator -R </span><span class="si">{index}</span><span class="s2"> -L </span><span class="si">{interval}</span><span class="s2"> -I </span><span class="si">{markedbam}</span><span class="s2"> --known-sites </span><span class="si">{dbsnp}</span><span class="s2"> --known-sites </span><span class="si">{snp}</span><span class="s2"> --known-sites </span><span class="si">{indel}</span><span class="s2"> --disable-read-filter NotDuplicateReadFilter -O </span><span class="si">{markedbam}</span><span class="s2">.table</span>
+<span class="si">{gatk}</span><span class="s2"> ApplyBQSR -R </span><span class="si">{index}</span><span class="s2"> -L </span><span class="si">{interval}</span><span class="s2"> -I </span><span class="si">{markedbam}</span><span class="s2"> -bqsr </span><span class="si">{markedbam}</span><span class="s2">.table --disable-read-filter NotDuplicateReadFilter -O </span><span class="si">{bqsrbam}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="bqsr"><a class="viewcode-back" href="../../../baseq/SNV.html#baseq.snv.gatk.bqsr">[docs]</a><span class="k">def</span> <span class="nf">bqsr</span><span class="p">(</span><span class="n">markedbam</span><span class="p">,</span> <span class="n">bqsrbam</span><span class="p">,</span> <span class="n">genome</span><span class="p">,</span> <span class="n">disable_dup_filter</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run BQSR_. This function performs the two-steps process called base quality score recalibration. the first</span>
+<span class="sd">    ster generates a recalibration table based on various covariates which is recruited to the second step to</span>
+<span class="sd">    correct the systematic bias in input BAM file. More details about BaseRecalibrator_ and ApplyBQSR_ .</span>
+
+
+<span class="sd">    .. _BQSR: https://gatkforums.broadinstitute.org/gatk/discussion/44/base-quality-score-recalibration-bqsr</span>
+<span class="sd">    .. _BaseRecalibrator: https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_BaseRecalibrator.php</span>
+<span class="sd">    .. _ApplyBQSR: https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_ApplyBQSR.php</span>
+
+<span class="sd">    Usage:</span>
+
+<span class="sd">    * Default mode filters duplicate reads (reads with &quot;markduplicate&quot; tags) before applying BQSR</span>
+<span class="sd">      ::</span>
+<span class="sd">         baseq-SNV run_bqsr -m Test.marked.bam -g hg38 -q Test.marked.bqsr.bam</span>
+
+<span class="sd">    * Disable reads filter before analysis.</span>
+<span class="sd">      ::</span>
+<span class="sd">        baseq-SNV run_bqsr -m Test.marked.bam -g hg38 -q Test.marked.bqsr.bam -f Yes</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">    ::</span>
+<span class="sd">      Test.marked.bam.table</span>
+<span class="sd">      Test.marked.bqsr.bai</span>
+<span class="sd">      Test.marked.bqsr.bam</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gatk</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span><span class="o">+</span><span class="n">genome</span><span class="p">,</span><span class="s2">&quot;bwa_index&quot;</span><span class="p">)</span>
+    <span class="n">DBSNP</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span><span class="o">+</span><span class="n">genome</span><span class="p">,</span><span class="s2">&quot;DBSNP&quot;</span><span class="p">)</span>
+    <span class="n">SNP</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span><span class="o">+</span><span class="n">genome</span><span class="p">,</span><span class="s2">&quot;SNP&quot;</span><span class="p">)</span>
+    <span class="n">INDEL</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span><span class="o">+</span><span class="n">genome</span><span class="p">,</span><span class="s2">&quot;INDEL&quot;</span><span class="p">)</span>
+    <span class="n">interval</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span><span class="o">+</span><span class="n">genome</span><span class="p">,</span><span class="s2">&quot;interval&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">disable_dup_filter</span><span class="p">:</span>
+        <span class="n">bqsr_cmd</span> <span class="o">=</span> <span class="n">bqsr_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="n">interval</span><span class="p">,</span> <span class="n">markedbam</span><span class="o">=</span><span class="n">markedbam</span><span class="p">,</span>
+                                          <span class="n">bqsrbam</span><span class="o">=</span><span class="n">bqsrbam</span><span class="p">,</span> <span class="n">dbsnp</span><span class="o">=</span><span class="n">DBSNP</span><span class="p">,</span> <span class="n">snp</span><span class="o">=</span><span class="n">SNP</span><span class="p">,</span> <span class="n">indel</span><span class="o">=</span><span class="n">INDEL</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bqsr_cmd</span> <span class="o">=</span> <span class="n">bqsr_cmd_script_DRF</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="n">interval</span><span class="p">,</span> <span class="n">markedbam</span><span class="o">=</span><span class="n">markedbam</span><span class="p">,</span>
+                                          <span class="n">bqsrbam</span><span class="o">=</span><span class="n">bqsrbam</span><span class="p">,</span> <span class="n">dbsnp</span><span class="o">=</span><span class="n">DBSNP</span><span class="p">,</span> <span class="n">snp</span><span class="o">=</span><span class="n">SNP</span><span class="p">,</span> <span class="n">indel</span><span class="o">=</span><span class="n">INDEL</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;BaseRecalibrator&quot;</span><span class="p">,</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bqsr_cmd</span><span class="p">))</span></div>
+
+<span class="n">callvar_cmd_script</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> --java-options &quot;-Xmx4g&quot; HaplotypeCaller -R </span><span class="si">{index}</span><span class="s2"> -L </span><span class="si">{interval}</span><span class="s2"> -I </span><span class="si">{bqsrbam}</span><span class="s2"> -O </span><span class="si">{rawvcf}</span><span class="s2"> -bamout bamout.bam --native-pair-hmm-threads 20 </span><span class="si">{extrainfos}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="run_callvar"><a class="viewcode-back" href="../../../baseq/SNV.html#baseq.snv.gatk.run_callvar">[docs]</a><span class="k">def</span> <span class="nf">run_callvar</span><span class="p">(</span><span class="n">bqsrbam</span><span class="p">,</span> <span class="n">rawvcf</span><span class="p">,</span> <span class="n">genome</span><span class="p">,</span> <span class="n">disable_dup_filter</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Call germline SNPs and indels via local re-assembly of haplotypes. BAM file recalbrated by BQSR do recommand as</span>
+<span class="sd">    input BAM file and this functin only run the single sample genotypeVCF calling. More details see also</span>
+<span class="sd">    HaplotypeCaller_</span>
+
+<span class="sd">    .. _HaplotypeCaller: https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_haplotypecaller_HaplotypeCaller.php</span>
+
+<span class="sd">    Usage:</span>
+<span class="sd">    ::</span>
+<span class="sd">      baseq-SNV run_callvar -q Test.marked.bqsr.bam -r Test.raw.indel.snp.vcf -g hg38</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">    ::</span>
+<span class="sd">      Test.raw.indel.snp.vcf</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">GATK</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span> <span class="o">+</span> <span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;bwa_index&quot;</span><span class="p">)</span>
+    <span class="n">interval</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span> <span class="o">+</span> <span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;interval&quot;</span><span class="p">)</span>
+    <span class="n">extra</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">disable_dup_filter</span><span class="p">:</span>
+        <span class="n">extra</span> <span class="o">=</span> <span class="s2">&quot;--disable-read-filter NotDuplicateReadFilter&quot;</span>
+    <span class="n">callvar_cmd</span> <span class="o">=</span> <span class="n">callvar_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">GATK</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="n">interval</span><span class="p">,</span> <span class="n">bqsrbam</span><span class="o">=</span><span class="n">bqsrbam</span><span class="p">,</span> <span class="n">rawvcf</span><span class="o">=</span><span class="n">rawvcf</span><span class="p">,</span> <span class="n">extrainfos</span><span class="o">=</span><span class="n">extra</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;call variants&quot;</span><span class="p">,</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">callvar_cmd</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">callvar_cmd</span></div>
+
+<span class="n">selectvar_cmd_script</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> SelectVariants -R </span><span class="si">{index}</span><span class="s2"> -V </span><span class="si">{rawvcf}</span><span class="s2"> --select-type-to-include SNP -O </span><span class="si">{selectvcf}</span><span class="s2"></span>
+<span class="si">{gatk}</span><span class="s2"> VariantFiltration -R </span><span class="si">{index}</span><span class="s2"> -V </span><span class="si">{selectvcf}</span><span class="s2"> -O </span><span class="si">{filtervcf}</span><span class="s2"> --filter-expression &quot;QD &lt; 2.0 || FS &gt; 60.0 || MQ &lt; 40.0&quot; --filter-name &quot;my_snp_filter&quot;</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="selectvar"><a class="viewcode-back" href="../../../baseq/SNV.html#baseq.snv.gatk.selectvar">[docs]</a><span class="k">def</span> <span class="nf">selectvar</span><span class="p">(</span><span class="n">rawvcf</span><span class="p">,</span><span class="n">selectvcf</span><span class="p">,</span><span class="n">filtervcf</span><span class="p">,</span><span class="n">genome</span><span class="p">,</span><span class="n">run</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function selects SNPs from a VCF file which is usually the output file of</span>
+<span class="sd">    HaplotypeCaller. Then, all SNPs are filtered by certain criteria based on INFO and/or FORMAT annotations.</span>
+<span class="sd">    Criteria used here is &quot;QD &lt; 2.0 || FS &gt; 60.0 || MQ &lt; 40.0&quot;.</span>
+<span class="sd">    More details about SelectVariants_ and VariantFiltration_</span>
+
+<span class="sd">    .. _SelectVariants: https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php</span>
+<span class="sd">    .. _VariantFiltration: https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_filters_VariantFiltration.php</span>
+
+<span class="sd">    Usage:</span>
+<span class="sd">    ::</span>
+<span class="sd">      baseq-SNV run_selectvar -r Test.raw.indel.snp.vcf -s Test.raw.snp.vcf -f Test.filtered.snp.vcf -g hg38</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">    ::</span>
+<span class="sd">      Test.raw.snp.vcf</span>
+<span class="sd">      Test.filtered.snp.vcf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">GATK</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span> <span class="o">+</span> <span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;bwa_index&quot;</span><span class="p">)</span>
+    <span class="n">selectvar_cmd</span> <span class="o">=</span> <span class="n">selectvar_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">GATK</span><span class="p">,</span><span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span><span class="n">rawvcf</span><span class="o">=</span><span class="n">rawvcf</span><span class="p">,</span><span class="n">selectvcf</span><span class="o">=</span><span class="n">selectvcf</span><span class="p">,</span><span class="n">filtervcf</span><span class="o">=</span><span class="n">filtervcf</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">run</span><span class="p">:</span>
+        <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;SelectVariants&quot;</span><span class="p">,</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">selectvar_cmd</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">selectvar_cmd</span></div>
+
+<span class="n">mutect2_cmd_simplified_script</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> Mutect2 -R </span><span class="si">{index}</span><span class="s2"> -I </span><span class="si">{normalbam}</span><span class="s2"> -normal </span><span class="si">{normalname}</span><span class="s2"> -I </span><span class="si">{tumorbam}</span><span class="s2"> -tumor </span><span class="si">{tumorname}</span><span class="s2"> -O </span><span class="si">{vcffile}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="n">mutect2_cmd_stardand_script</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> Mutect2 -R </span><span class="si">{index}</span><span class="s2"> -I </span><span class="si">{normalbam}</span><span class="s2"> -normal </span><span class="si">{normalname}</span><span class="s2"> -I </span><span class="si">{tumorbam}</span><span class="s2"> -tumor </span><span class="si">{tumorname}</span><span class="s2"> --germline-resource </span><span class="si">{germline}</span><span class="s2"> --panel-of-normals </span><span class="si">{pon}</span><span class="s2"> -O </span><span class="si">{vcffile}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="mutect2"><a class="viewcode-back" href="../../../baseq/SNV.html#baseq.snv.gatk.mutect2">[docs]</a><span class="k">def</span> <span class="nf">mutect2</span><span class="p">(</span><span class="n">genome</span><span class="p">,</span> <span class="n">normalname</span><span class="p">,</span> <span class="n">normalbam</span><span class="p">,</span> <span class="n">tumorname</span><span class="p">,</span> <span class="n">tumorbam</span><span class="p">,</span> <span class="n">vcffile</span><span class="p">,</span> <span class="n">pon</span><span class="p">,</span> <span class="n">germline</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Mutect2 is aim to call somatic SNVs and indels via local assembly of haplotypes. This function requires both</span>
+<span class="sd">    tumor BAM file and its matched normal BAM file. tumorname and normalname should be consistent with the ReadGroup(ID) of tumor</span>
+<span class="sd">    BAM file and normal BAM file respectively. PoN is refer to panel of normals callset(more infomation about PoN and how to</span>
+<span class="sd">    create it, please see PoN_ ). Germline resource, also in VCF format, is used to annotate variant alleles. Download germline_ resource.</span>
+
+<span class="sd">    .. _germline: https://software.broadinstitute.org/gatk/download/bundle</span>
+<span class="sd">    .. _PoN: https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_mutect_CreateSomaticPanelOfNormals.php</span>
+
+<span class="sd">    Usage:</span>
+
+<span class="sd">    * Simplified Mutect2 command line</span>
+<span class="sd">      ::</span>
+<span class="sd">        # single sample</span>
+<span class="sd">        baseq-SNV run_mutect2 -g hg37 -n normal -N normal_marked_bqsr.bam \\</span>
+<span class="sd">                                      -t tumor -T tumor_marked_bqsr.bam -o ./</span>
+<span class="sd">        # multiple samples</span>
+<span class="sd">        baseq-SNV run_mutect2 -g hg37 -l sample_list.txt -o ./</span>
+
+<span class="sd">    * Specify PoN(panels of normals) VCF file and germline VCF file</span>
+<span class="sd">      Default germline VCF file comes form GATK resource bundle and is recruited if germline isn&#39;t designated.</span>
+<span class="sd">      ::</span>
+<span class="sd">        # single sample</span>
+<span class="sd">        baseq-SNV run_mutect2 -g hg37 -n normal -N normal_marked_bqsr.bam \\</span>
+<span class="sd">                                      -t tumor -T tumor_marked_bqsr.bam -o ./ \\</span>
+<span class="sd">                                      -p pon.vcf.gz -G af-only-gnomad.raw.sites.b37.vcf.gz</span>
+<span class="sd">        # multiple samples</span>
+<span class="sd">        baseq-SNV run_mutect2 -g hg37 -l sample_list.txt -o ./ \\</span>
+<span class="sd">                                      -p pon.vcf.gz -G af-only-gnomad.raw.sites.b37.vcf.gz</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+
+    <span class="n">gatk</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span><span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span> <span class="o">+</span> <span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;bwa_index&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pon</span> <span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">germline</span><span class="p">:</span>
+            <span class="n">germline</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span> <span class="o">+</span> <span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;germline&quot;</span><span class="p">)</span>
+            <span class="n">mutect2_cmd</span> <span class="o">=</span> <span class="n">mutect2_cmd_stardand_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">normalbam</span><span class="o">=</span><span class="n">normalbam</span><span class="p">,</span>
+                                                             <span class="n">normalname</span><span class="o">=</span><span class="n">normalname</span><span class="p">,</span> <span class="n">tumorbam</span><span class="o">=</span><span class="n">tumorbam</span><span class="p">,</span>
+                                                             <span class="n">tumorname</span><span class="o">=</span><span class="n">tumorname</span><span class="p">,</span> <span class="n">vcffile</span><span class="o">=</span><span class="n">vcffile</span><span class="p">,</span> <span class="n">germline</span><span class="o">=</span><span class="n">germline</span><span class="p">,</span>
+                                                             <span class="n">pon</span><span class="o">=</span><span class="n">pon</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mutect2_cmd</span> <span class="o">=</span> <span class="n">mutect2_cmd_stardand_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">normalbam</span><span class="o">=</span><span class="n">normalbam</span><span class="p">,</span>
+                                                             <span class="n">normalname</span><span class="o">=</span><span class="n">normalname</span><span class="p">,</span> <span class="n">tumorbam</span><span class="o">=</span><span class="n">tumorbam</span><span class="p">,</span>
+                                                             <span class="n">tumorname</span><span class="o">=</span><span class="n">tumorname</span><span class="p">,</span> <span class="n">vcffile</span><span class="o">=</span><span class="n">vcffile</span><span class="p">,</span> <span class="n">germline</span><span class="o">=</span><span class="n">germline</span><span class="p">,</span>
+                                                             <span class="n">pon</span><span class="o">=</span><span class="n">pon</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mutect2_cmd</span> <span class="o">=</span> <span class="n">mutect2_cmd_simplified_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">normalbam</span><span class="o">=</span><span class="n">normalbam</span><span class="p">,</span>
+                                                           <span class="n">normalname</span><span class="o">=</span><span class="n">normalname</span><span class="p">,</span> <span class="n">tumorbam</span><span class="o">=</span><span class="n">tumorbam</span><span class="p">,</span>
+                                                           <span class="n">tumorname</span><span class="o">=</span><span class="n">tumorname</span><span class="p">,</span> <span class="n">vcffile</span><span class="o">=</span><span class="n">vcffile</span><span class="p">)</span>
+
+
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;mutect annlysis&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mutect2_cmd</span><span class="p">))</span></div>
+
+
+<span class="n">filtertable_cmd_script</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> GetPileupSummaries -I </span><span class="si">{tumorbam}</span><span class="s2"> -V </span><span class="si">{resource}</span><span class="s2"> -O </span><span class="si">{gps_table}</span><span class="s2"></span>
+<span class="si">{gatk}</span><span class="s2"> CalculateContamination -I </span><span class="si">{gps_table}</span><span class="s2"> -O </span><span class="si">{calcontam_table}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="k">def</span> <span class="nf">get_filter_table</span><span class="p">(</span><span class="n">tumorbam</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">gps_table</span><span class="p">,</span> <span class="n">calcontam_table</span><span class="p">):</span>
+    <span class="n">gatk</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span><span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="n">filtertable_cmd</span> <span class="o">=</span> <span class="n">filtertable_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">tumorbam</span><span class="o">=</span><span class="n">tumorbam</span><span class="p">,</span> <span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">,</span> <span class="n">gps_table</span><span class="o">=</span><span class="n">gps_table</span><span class="p">,</span>
+                                                    <span class="n">calcontam_table</span><span class="o">=</span><span class="n">calcontam_table</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;obatin filter table for mutect calls&quot;</span><span class="p">,</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">filtertable_cmd</span><span class="p">))</span>
+
+
+
+<span class="n">filtercall_cmd_script</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> FilterMutectCalls -V </span><span class="si">{somaticvcf}</span><span class="s2"> --contamination-table </span><span class="si">{calcontam_table}</span><span class="s2"> -O </span><span class="si">{filter_call}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="k">def</span> <span class="nf">filter_mutect_vcf</span><span class="p">(</span><span class="n">somaticvcf</span><span class="p">,</span><span class="n">calcontam_table</span><span class="p">,</span><span class="n">filter_call</span><span class="p">):</span>
+    <span class="n">gatk</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span><span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="n">filtercall_cmd</span> <span class="o">=</span> <span class="n">filtercall_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">somaticvcf</span><span class="o">=</span><span class="n">somaticvcf</span><span class="p">,</span> <span class="n">calcontam_table</span><span class="o">=</span><span class="n">calcontam_table</span><span class="p">,</span>
+                                                    <span class="n">filter_call</span><span class="o">=</span><span class="n">filter_call</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;filter mutect calls using contamination table&quot;</span><span class="p">,</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">filtercall_cmd</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">listofvcf</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="n">normalargs</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="s2">&quot;normalvcf_for_pon.args&quot;</span><span class="p">),</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+    <span class="n">filelist</span><span class="o">=</span><span class="p">[]</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">filename</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">fn</span><span class="p">[</span><span class="o">-</span><span class="mi">6</span><span class="p">:]</span> <span class="o">==</span> <span class="s2">&quot;vcf.gz&quot;</span><span class="p">:</span>
+           <span class="n">fullfilename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">fn</span><span class="p">)</span>
+           <span class="n">filelist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fullfilename</span><span class="p">)</span>
+    <span class="n">normalargs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">list</span> <span class="k">for</span> <span class="nb">list</span> <span class="ow">in</span> <span class="n">filelist</span><span class="p">])</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="s2">&quot;normalvcf_for_pon.args&quot;</span><span class="p">)</span>
+
+<span class="n">normalvcf_cmd_script</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> Mutect2 -R </span><span class="si">{index}</span><span class="s2"> -I </span><span class="si">{normalbam}</span><span class="s2"> -tumor </span><span class="si">{samplename}</span><span class="s2"> --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter -L </span><span class="si">{interval}</span><span class="s2"> -O </span><span class="si">{normalvcf}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="n">normalvcf_cmd_script1</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> Mutect2 -R </span><span class="si">{index}</span><span class="s2"> -I </span><span class="si">{normalbam}</span><span class="s2"> -tumor </span><span class="si">{samplename}</span><span class="s2"> --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter -O </span><span class="si">{normalvcf}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="n">pon_cmd_script</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="si">{gatk}</span><span class="s2"> CreateSomaticPanelOfNormals -vcfs </span><span class="si">{normalvcfs}</span><span class="s2"> -O </span><span class="si">{ponvcf}</span><span class="s2"></span>
+<span class="s2">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="create_pon"><a class="viewcode-back" href="../../../baseq/SNV.html#baseq.snv.gatk.create_pon">[docs]</a><span class="k">def</span> <span class="nf">create_pon</span><span class="p">(</span><span class="n">genome</span><span class="p">,</span><span class="nb">list</span><span class="p">,</span><span class="n">path</span><span class="p">,</span><span class="n">interval</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create_pon function helps you create PoN(panel of normals) file necessary for mutect2 calling. The PoN captures</span>
+<span class="sd">    common artifactual and germline variant sites. Mutect2 then uses the PoN to filter variants at the site-level.</span>
+
+<span class="sd">    Example of samples list (tab delimited):</span>
+
+<span class="sd">    * Content of columns are normal sample name, normal BAM file, tumor sample name, tumor BAM file(order cannot be distruped).</span>
+<span class="sd">      Absoulte path of all BAM files should be added if directory of BAM files and analysis directory are different.</span>
+<span class="sd">      ::</span>
+<span class="sd">        N504    N504_marked_bqsr.bam   T504    T504_marked_bqsr.bam</span>
+<span class="sd">        N505    N505_marked_bqsr.bam   T505    T505_marked_bqsr.bam</span>
+<span class="sd">        N506    N506_marked_bqsr.bam   T506    T506_marked_bqsr.bam</span>
+<span class="sd">        N509    N509_marked_bqsr.bam   T509    T509_marked_bqsr.bam</span>
+<span class="sd">        N510    N510_marked_bqsr.bam   T510    T510_marked_bqsr.bam</span>
+
+<span class="sd">    Usage:</span>
+<span class="sd">    </span>
+<span class="sd">    * Interval list defines genomic regions where analysis is restricted. Introduction of interval list format and its function, please see here_.</span>
+<span class="sd">      ::</span>
+<span class="sd">        # designated a intervals.list</span>
+<span class="sd">        baseq-SNV create_pon -g hg37 -l sample_list.txt -p ./ -L interval.list</span>
+<span class="sd">        # Using the dafalut intervals.list</span>
+<span class="sd">        baseq-SNV create_pon -g hg37 -l sample_list.txt -p ./</span>
+
+<span class="sd">    .. _here: https://software.broadinstitute.org/gatk/documentation/article?id=11009</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV_ref_&quot;</span> <span class="o">+</span> <span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;bwa_index&quot;</span><span class="p">)</span>
+    <span class="n">gatk</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[ERROR] No such file or directory&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">path_pon</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;pon&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path_pon</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">path_pon</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="n">sample_info</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">]</span>
+    <span class="kn">import</span> <span class="nn">multiprocessing</span> <span class="k">as</span> <span class="nn">mp</span>
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">sample_info</span><span class="p">:</span>
+        <span class="n">normalvcf</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path_pon</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">_tumor-only.vcf.gz&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="n">interval</span><span class="p">:</span>
+            <span class="n">normalvcf_cmd</span> <span class="o">=</span> <span class="n">normalvcf_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">normalbam</span><span class="o">=</span><span class="n">sample</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                                        <span class="n">samplename</span><span class="o">=</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                                        <span class="n">normalvcf</span><span class="o">=</span><span class="n">normalvcf</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="n">interval</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">normalvcf_cmd</span> <span class="o">=</span> <span class="n">normalvcf_cmd_script1</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">normalbam</span><span class="o">=</span><span class="n">sample</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                                         <span class="n">samplename</span><span class="o">=</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                                         <span class="n">normalvcf</span><span class="o">=</span><span class="n">normalvcf</span><span class="p">)</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">run_cmd</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;creat normal vcf file&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">normalvcf_cmd</span><span class="p">,))))</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+    <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+    <span class="n">normalargs</span> <span class="o">=</span> <span class="n">listofvcf</span><span class="p">(</span><span class="n">path_pon</span><span class="p">)</span>
+    <span class="n">ponvcf</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;pon.vcf.gz&quot;</span><span class="p">)</span>
+    <span class="n">pon_cmd</span> <span class="o">=</span> <span class="n">pon_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">normalvcfs</span><span class="o">=</span><span class="n">normalargs</span><span class="p">,</span> <span class="n">ponvcf</span><span class="o">=</span><span class="n">ponvcf</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;create panel of normals&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pon_cmd</span><span class="p">))</span></div>
+
+<span class="k">def</span> <span class="nf">run_createsomatic_pon</span><span class="p">(</span><span class="n">path_pon</span><span class="p">,</span><span class="n">path</span><span class="p">):</span>
+    <span class="n">gatk</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;SNV&quot;</span><span class="p">,</span> <span class="s2">&quot;GATK&quot;</span><span class="p">)</span>
+    <span class="n">normalargs</span> <span class="o">=</span> <span class="n">listofvcf</span><span class="p">(</span><span class="n">path_pon</span><span class="p">)</span>
+    <span class="n">ponvcf</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="s2">&quot;pon.vcf.gz&quot;</span><span class="p">)</span>
+    <span class="n">pon_cmd</span> <span class="o">=</span> <span class="n">pon_cmd_script</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gatk</span><span class="o">=</span><span class="n">gatk</span><span class="p">,</span> <span class="n">normalvcfs</span><span class="o">=</span><span class="n">normalargs</span><span class="p">,</span> <span class="n">ponvcf</span><span class="o">=</span><span class="n">ponvcf</span><span class="p">)</span>
+    <span class="n">run_cmd</span><span class="p">(</span><span class="s2">&quot;create panel of normals&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pon_cmd</span><span class="p">))</span>
+
+
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Xiannian Zhang.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

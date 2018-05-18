@@ -1,0 +1,39 @@
+.. _BAM:
+
+BAM
+====
+
+Functions
+______________
+
+- Read bam file, stats the bamfile (reads, mapping ratio...);
+- Get the depth for a genomic region (and visualization);
+- Get the reads overlapped with a genomic region;
+
+=== =====   ===========   =====================================
+Col Field   Type          Brief Description
+=== =====   ===========   =====================================
+1   QNAME   String        Query template NAME
+2   FLAG    Int	bitwise   FLAG
+3   RNAME   String        References sequence NAME
+4   POS     Int	          1- based leftmost mapping POSition
+5   MAPQ    Int	          MAPping Quality
+6   CIGAR   String        CIGAR String
+7   RNEXT   String        Ref. name of the mate/next read
+8   PNEXT   Int	          Position of the mate/next read
+9   TLEN    Int	          observed Template LENgth
+10  SEQ     String        segment SEQuence
+11  QUAL    String        ASCII of Phred-scaled base QUALity+33
+=== =====   ===========   =====================================
+
+Design
+_______
+Most of the function develop based on "samtools". The version should be >=1.3.0
+
+- samtools depth: to get the coverage depth;
+- samtools view chrN:start-end : to get the overlapped reads;
+
+Class
+_______
+.. autoclass:: baseq.bam.BAMTYPE
+   :members:

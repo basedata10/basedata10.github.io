@@ -1,0 +1,5 @@
+Jupyter
+============
+Jupyter 是一个笔记本，这个笔记本可以编写和执行代码，分析数据，嵌入内容，以及共享可重复性的工作。
+Jupyter Notebook （以前成为iPython Notebook）可以在一个简单的笔记本中轻松分享代码，
+数据，图标以及说明。发布格式也比较灵活：PDF， HTML，ipynb，dsahboards，slides，等等。
